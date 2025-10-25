@@ -16,7 +16,19 @@
 
 **Core** is the central backend service of the Panchapp ecosystem, built with [NestJS](https://github.com/nestjs/nest) framework. This service provides a robust foundation for handling user management, business logic, and API endpoints with clean architecture principles.
 
-### Scripts
+This project uses **Knex.js** for database migrations and query building with PostgreSQL.
+
+## Environment Setup
+
+Copy and customize environment variables:
+
+```bash
+cp env.example .env
+```
+
+## Scripts
+
+### Development
 
 ```bash
 # Install dependencies
@@ -48,6 +60,8 @@ $ pnpm run build
 $ pnpm run build:analyze
 ```
 
+### Testing
+
 ```bash
 # Run unit tests
 $ pnpm run test
@@ -68,6 +82,8 @@ $ pnpm run test:e2e
 $ pnpm run test:cov
 ```
 
+### Code Quality
+
 ```bash
 # Run ESLint
 $ pnpm run lint
@@ -81,4 +97,26 @@ $ pnpm run lint:fix
 ```bash
 # Format code with Prettier
 $ pnpm run format
+```
+
+### Database
+
+```bash
+# Create a new migration file
+$ pnpm run migrate:make <migration_name>
+```
+
+```bash
+# Run all pending migrations
+$ pnpm run migrate:latest
+```
+
+```bash
+# Rollback the last batch of migrations
+$ pnpm run migrate:rollback
+```
+
+```bash
+# Check migration status
+$ pnpm run migrate:status
 ```
