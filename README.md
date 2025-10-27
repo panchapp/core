@@ -10,6 +10,15 @@
   <br>
 </p>
 
+<p align="center">
+  <a href="https://sonarcloud.io/summary/new_code?id=panchapp_core">
+    <img src="https://sonarcloud.io/api/project_badges/measure?project=panchapp_core&metric=alert_status" alt="Quality Gate Status" />
+  </a>
+  <a href="https://github.com/panchapp/core/actions/workflows/ci.yml">
+    <img src="https://github.com/panchapp/core/actions/workflows/ci.yml/badge.svg" alt="CI Status" />
+  </a>
+</p>
+
 <hr>
 
 ## Description
@@ -46,9 +55,16 @@ $ pnpm run start:dev
 ```
 
 ```bash
+# Start with debugging enabled
+$ pnpm run start:debug
+```
+
+```bash
 # Start in production mode
 $ pnpm run start:prod
 ```
+
+### Build
 
 ```bash
 # Build the application
@@ -56,8 +72,13 @@ $ pnpm run build
 ```
 
 ```bash
-# Build and analyze bundle
-$ pnpm run build:analyze
+# Build migrations only
+$ pnpm run build:migrations
+```
+
+```bash
+# Build application and migrations
+$ pnpm run build:all
 ```
 
 ### Testing
@@ -70,6 +91,11 @@ $ pnpm run test
 ```bash
 # Run tests in watch mode
 $ pnpm run test:watch
+```
+
+```bash
+# Run tests with debugging enabled
+$ pnpm run test:debug
 ```
 
 ```bash
@@ -103,7 +129,7 @@ $ pnpm run format
 
 ```bash
 # Create a new migration file
-$ pnpm run migrate:make <migration_name>
+$ pnpm run migrate:new <migration_name>
 ```
 
 ```bash

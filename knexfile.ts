@@ -2,7 +2,7 @@ import { Knex } from 'knex';
 import * as dotenv from 'dotenv';
 
 // Load environment variables
-dotenv.config();
+dotenv.config({ path: '.env' });
 
 const config: Knex.Config = {
   client: 'postgresql',
@@ -24,8 +24,7 @@ const config: Knex.Config = {
     max: 10,
   },
   migrations: {
-    tableName: 'knex_migrations',
-    directory: './migrations',
+    tableName: 'migrations',
   },
 };
 

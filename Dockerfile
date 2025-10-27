@@ -12,12 +12,15 @@ COPY package*.json ./
 ENV HUSKY=0
 
 # Install all dependencies (including dev dependencies for development)
-RUN npm ci
+# Skip scripts to prevent arbitrary script execution
+RUN npm ci --ignore-scripts
 
 # Install NestJS CLI globally for development
-RUN npm install -g @nestjs/cli
+# Skip scripts to prevent arbitrary script execution
+RUN npm install -g @nestjs/cli --ignore-scripts
 
 # Copy source code
+# Safe to copy all files because .dockerignore excludes sensitive data
 COPY . .
 
 # Expose port
@@ -38,10 +41,11 @@ COPY package*.json ./
 RUN npm ci --ignore-scripts
 
 # Copy source code
+# Safe to copy all files because .dockerignore excludes sensitive data
 COPY . .
 
 # Build the application
-RUN npm run build
+RUN npm run build:all
 
 # Production stage
 FROM node:20-alpine AS production
@@ -61,15 +65,21 @@ RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 # Copy built application from build stage
 COPY --from=build --chown=nestjs:nodejs /app/dist ./dist
 
+# Remove write permissions from copied files for security
+RUN chmod -R a-w /app/dist
+
+# Install knex globally for running migrations
+# Skip scripts to prevent arbitrary script execution
+RUN npm install -g knex --ignore-scripts
+
+# Set working directory for migrations
+WORKDIR /app
+
 # Change to non-root user
 USER nestjs
 
 # Expose port
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:3000/health || exit 1
-
-# Start the application
-CMD ["node", "dist/main"]
+# Start the application (run migrations then start app)
+CMD sh -c "npx knex migrate:latest --knexfile=./dist/knexfile.js && node dist/src/main.js"
