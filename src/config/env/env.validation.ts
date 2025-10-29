@@ -1,33 +1,44 @@
 import { plainToInstance } from 'class-transformer';
-import { IsEnum, IsNumber, IsString, validateSync } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsNumber,
+  IsString,
+  validateSync,
+} from 'class-validator';
 
 class EnvironmentVariables {
   // App
-  @IsNumber({}, { message: 'Application port must be a valid number' })
+  @IsNumber()
   PORT!: number;
 
-  @IsEnum(['development', 'production', 'test'], {
-    message: 'Environment must be one of: development, production, test',
-  })
+  @IsEnum(['development', 'production', 'test'])
   NODE_ENV!: 'development' | 'production' | 'test';
 
+  // Logging
+  @IsEnum(['trace', 'debug', 'info', 'warn', 'error', 'fatal'])
+  LOG_LEVEL!: 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal';
+
+  @IsBoolean()
+  ENABLE_REQUEST_LOGGING!: boolean;
+
   // Postgres Database
-  @IsString({ message: 'PostgreSQL database host is required' })
+  @IsString()
   POSTGRES_DB_HOST!: string;
 
-  @IsNumber({}, { message: 'PostgreSQL database port must be a valid number' })
+  @IsNumber()
   POSTGRES_DB_PORT!: number;
 
-  @IsString({ message: 'PostgreSQL database name is required' })
+  @IsString()
   POSTGRES_DB_NAME!: string;
 
-  @IsString({ message: 'PostgreSQL database username is required' })
+  @IsString()
   POSTGRES_DB_USER!: string;
 
-  @IsString({ message: 'PostgreSQL database password is required' })
+  @IsString()
   POSTGRES_DB_PASSWORD!: string;
 
-  @IsString({ message: 'PostgreSQL SSL setting is required' })
+  @IsString()
   POSTGRES_DB_SSL!: string;
 }
 

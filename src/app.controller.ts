@@ -1,12 +1,18 @@
 import { Controller, Get } from '@nestjs/common';
-import { AppService } from './app.service';
+import { AppService } from '@/app.service';
+import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(
+    private readonly appService: AppService,
+    @InjectPinoLogger(AppController.name)
+    private readonly logger: PinoLogger,
+  ) {}
 
   @Get()
   getHello(): string {
+    this.logger.info('getHello');
     return this.appService.getHello();
   }
 
