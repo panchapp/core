@@ -1,0 +1,26 @@
+name: Task
+description: File a task request.
+projects: ['panchapp/1']
+type: Task
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the task in detail.
+    validations:
+      required: true
+  - type: textarea
+    id: requirements
+    attributes:
+      label: Requirements
+      description: Describe the requirements for the task.
+    validations:
+      required: true
+  - type: textarea
+    id: additional-information
+    attributes:
+      label: Additional Information
+      description: Provide any additional information that may be helpful.
+    validations:
+      required: false
