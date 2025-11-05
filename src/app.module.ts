@@ -5,6 +5,7 @@ import { getEnvConfig } from '@/config/env/env.config';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { LoggerModule } from 'nestjs-pino';
 import { getLoggingConfig } from '@/config/logging/logging.config';
+import { AuthModule } from '@/auth/auth.module';
 @Module({
   imports: [
     ConfigModule.forRoot(getEnvConfig()),
@@ -14,6 +15,7 @@ import { getLoggingConfig } from '@/config/logging/logging.config';
       useFactory: (configService: ConfigService) =>
         getLoggingConfig(configService),
     }),
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],

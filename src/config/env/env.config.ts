@@ -26,6 +26,15 @@ function envConfig() {
       password: process.env.POSTGRES_DB_PASSWORD!,
       ssl: process.env.POSTGRES_DB_SSL!,
     },
+
+    // Auth
+    auth: {
+      jwtSecret: process.env.JWT_SECRET!,
+      jwtExpirationTime: process.env.JWT_EXPIRATION_TIME!,
+      googleClientId: process.env.GOOGLE_CLIENT_ID!,
+      googleClientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      googleCallbackUrl: process.env.GOOGLE_CALLBACK_URL!,
+    },
   };
 }
 
