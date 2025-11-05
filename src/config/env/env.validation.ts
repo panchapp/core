@@ -4,6 +4,7 @@ import {
   IsEnum,
   IsNumber,
   IsString,
+  IsUrl,
   validateSync,
 } from 'class-validator';
 
@@ -40,6 +41,26 @@ class EnvironmentVariables {
 
   @IsString()
   POSTGRES_DB_SSL!: string;
+
+  // Auth
+  @IsString()
+  JWT_SECRET!: string;
+
+  @IsNumber()
+  JWT_EXPIRATION_TIME!: number;
+
+  @IsString()
+  GOOGLE_CLIENT_ID!: string;
+
+  @IsString()
+  GOOGLE_CLIENT_SECRET!: string;
+
+  @IsUrl({
+    require_protocol: false,
+    require_tld: false,
+    protocols: ['http', 'https'],
+  })
+  GOOGLE_CALLBACK_URL!: string;
 }
 
 export function validate(config: Record<string, unknown>) {
