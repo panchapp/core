@@ -1,0 +1,1 @@
+export const KNEX_DATABASE_TOKEN = Symbol('KNEX_DATABASE_TOKEN');
