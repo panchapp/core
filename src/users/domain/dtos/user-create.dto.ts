@@ -1,0 +1,6 @@
+export interface UserCreateDto {
+  email: string;
+  name: string;
+  googleId?: string | null;
+  isSuperAdmin?: boolean;
+}

@@ -9,7 +9,6 @@ import {
 } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import knex, { Knex } from 'knex';
-import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 
 @Global()
 @Module({
@@ -28,25 +27,15 @@ import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
   exports: [KNEX_DATABASE_TOKEN],
 })
 export class DatabaseModule implements OnModuleDestroy, OnModuleInit {
-  constructor(
-    @Inject(KNEX_DATABASE_TOKEN) private readonly db: Knex,
-    @InjectPinoLogger(DatabaseModule.name) private readonly logger: PinoLogger,
-  ) {}
+  constructor(@Inject(KNEX_DATABASE_TOKEN) private readonly db: Knex) {}
 
   async onModuleInit() {
     try {
       await this.db.select(1);
-      this.logger.info('Database connection initialized');
     } catch (error) {
-      this.logger.error({
-        message: 'Error initializing database connection',
-        error: {
-          name: (error as Error).name,
-          message: (error as Error).message,
-          stack: (error as Error).stack,
-        },
+      throw new Error(`Failed to initialize database connection`, {
+        cause: (error as Error).message,
       });
-      process.exit(1);
     }
   }
 

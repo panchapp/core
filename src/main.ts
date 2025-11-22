@@ -1,5 +1,4 @@
 import { AppModule } from '@/app.module';
-import { CustomExceptionFilter } from '@/common/filters/custom-exception.filter';
 import { setupSwagger } from '@/config/swagger/swagger.config';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
@@ -14,11 +13,9 @@ async function bootstrap() {
 
   // Configuration
   const logger = app.get(Logger);
-  const customExceptionFilter = app.get(CustomExceptionFilter);
   app.useLogger(logger);
   app.flushLogs();
   app.enableShutdownHooks();
-  app.useGlobalFilters(customExceptionFilter);
   setupSwagger(app);
 
   // Start the applications
