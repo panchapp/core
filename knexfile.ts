@@ -1,5 +1,5 @@
-import { Knex } from 'knex';
 import * as dotenv from 'dotenv';
+import { Knex } from 'knex';
 
 // Load environment variables
 dotenv.config({ path: '.env' });

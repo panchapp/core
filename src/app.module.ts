@@ -1,12 +1,14 @@
-import { Module } from '@nestjs/common';
 import { AppController } from '@/app.controller';
-import { getEnvConfig } from '@/config/env/env.config';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { LoggerModule } from 'nestjs-pino';
-import { getLoggingConfig } from '@/config/logging/logging.config';
 import { AuthModule } from '@/auth/auth.module';
-import { UsersModule } from '@/users/users.module';
+import { CustomExceptionFilter } from '@/common/filters/custom-exception.filter';
+import { getEnvConfig } from '@/config/env/env.config';
+import { getLoggingConfig } from '@/config/logging/logging.config';
 import { DatabaseModule } from '@/database/database.module';
+import { UsersModule } from '@/users/users.module';
+import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_FILTER } from '@nestjs/core';
+import { LoggerModule } from 'nestjs-pino';
 
 @Module({
   imports: [
@@ -22,5 +24,11 @@ import { DatabaseModule } from '@/database/database.module';
     UsersModule,
   ],
   controllers: [AppController],
+  providers: [
+    {
+      provide: APP_FILTER,
+      useClass: CustomExceptionFilter,
+    },
+  ],
 })
 export class AppModule {}
