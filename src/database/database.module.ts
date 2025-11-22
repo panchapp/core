@@ -1,3 +1,5 @@
+import { getDatabaseConfig } from '@/config/database/database.config';
+import { KNEX_DATABASE_TOKEN } from '@/database/database.tokens';
 import {
   Global,
   Inject,
@@ -6,9 +8,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { KNEX_DATABASE_TOKEN } from '@/database/database.tokens';
 import knex, { Knex } from 'knex';
-import { getDatabaseConfig } from '@/config/database/database.config';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 
 @Global()

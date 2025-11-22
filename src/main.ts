@@ -1,7 +1,8 @@
-import { NestFactory } from '@nestjs/core';
 import { AppModule } from '@/app.module';
-import { ConfigService } from '@nestjs/config';
+import { CustomExceptionFilter } from '@/common/filters/custom-exception.filter';
 import { setupSwagger } from '@/config/swagger/swagger.config';
+import { ConfigService } from '@nestjs/config';
+import { NestFactory } from '@nestjs/core';
 import { Logger } from 'nestjs-pino';
 
 async function bootstrap() {
@@ -12,12 +13,15 @@ async function bootstrap() {
   const port = configService.get<number>('app.port')!;
 
   // Configuration
-  app.useLogger(app.get(Logger));
+  const logger = app.get(Logger);
+  const customExceptionFilter = app.get(CustomExceptionFilter);
+  app.useLogger(logger);
   app.flushLogs();
   app.enableShutdownHooks();
+  app.useGlobalFilters(customExceptionFilter);
   setupSwagger(app);
 
-  // Start the application
+  // Start the applications
   await app.listen(port);
 }
 
