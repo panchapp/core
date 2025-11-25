@@ -110,7 +110,10 @@ export async function up(knex: Knex): Promise<void> {
       table.primary(['user_id', 'permission_id']);
     });
   } catch (error) {
-    console.error('Error during migration up:', error);
+    console.error(
+      'Error during 20251024205949_initial-data-model migration up:',
+      error,
+    );
     throw error;
   }
 }
@@ -127,7 +130,10 @@ export async function down(knex: Knex): Promise<void> {
     await knex.schema.dropTableIfExists('apps');
     await knex.schema.dropTableIfExists('users');
   } catch (error) {
-    console.error('Error during migration down:', error);
+    console.error(
+      'Error during 20251024205949_initial-data-model migration down:',
+      error,
+    );
     throw error;
   }
 }
