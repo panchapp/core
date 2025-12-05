@@ -9,6 +9,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_FILTER } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
+import { AppsModule } from './apps/apps.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { LoggerModule } from 'nestjs-pino';
     DatabaseModule,
     AuthModule,
     UsersModule,
+    AppsModule,
   ],
   controllers: [AppController],
   providers: [
