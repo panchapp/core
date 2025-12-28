@@ -1,9 +1,9 @@
 import { CustomException } from '@/common/exceptions/custom.exception';
-import { UserCreateDto } from '@/users/domain/dtos/user-create.dto';
-import { UserUpdateDto } from '@/users/domain/dtos/user-update.dto';
 import { UserEntity } from '@/users/domain/entities/user.entity';
 import { UsersRepository } from '@/users/domain/repositories/users.repository';
 import { USERS_REPOSITORY_TOKEN } from '@/users/domain/tokens/users.tokens';
+import { UserCreationValueObject } from '@/users/domain/value-objects/user-creation.value-object';
+import { UserUpdateValueObject } from '@/users/domain/value-objects/user-update.value-object';
 import { Inject, Injectable } from '@nestjs/common';
 
 @Injectable()
@@ -13,7 +13,7 @@ export class UsersService {
     private readonly usersRepository: UsersRepository,
   ) {}
 
-  async getAllUsers(): Promise<UserEntity[]> {
+  async getAll(): Promise<UserEntity[]> {
     try {
       const foundUsers = await this.usersRepository.findAll();
       return foundUsers;
@@ -22,48 +22,71 @@ export class UsersService {
     }
   }
 
-  async getUserById(id: string): Promise<UserEntity | null> {
+  async getById(id: string): Promise<UserEntity> {
     try {
       const foundUser = await this.usersRepository.findById(id);
+      if (!foundUser) {
+        throw CustomException.notFound('User not found', undefined, { id });
+      }
       return foundUser;
     } catch (error) {
       throw CustomException.from(error);
     }
   }
 
-  async getUserByEmail(email: string): Promise<UserEntity | null> {
+  async getByEmail(email: string): Promise<UserEntity> {
     try {
       const foundUser = await this.usersRepository.findByEmail(email);
+      if (!foundUser) {
+        throw CustomException.notFound('User not found', undefined, { email });
+      }
       return foundUser;
     } catch (error) {
       throw CustomException.from(error);
     }
   }
 
-  async createUser(user: UserCreateDto): Promise<UserEntity | null> {
+  async create(userValueObject: UserCreationValueObject): Promise<UserEntity> {
     try {
-      const createdUser = await this.usersRepository.create(user);
+      const createdUser = await this.usersRepository.create(userValueObject);
+      if (!createdUser) {
+        throw CustomException.internalServerError(
+          'Failed to create user',
+          undefined,
+          { email: userValueObject.email },
+        );
+      }
       return createdUser;
     } catch (error) {
       throw CustomException.from(error);
     }
   }
 
-  async updateUser(
+  async update(
     id: string,
-    user: UserUpdateDto,
-  ): Promise<UserEntity | null> {
+    userValueObject: UserUpdateValueObject,
+  ): Promise<UserEntity> {
     try {
-      const updatedUser = await this.usersRepository.update(id, user);
+      const updatedUser = await this.usersRepository.update(
+        id,
+        userValueObject,
+      );
+      if (!updatedUser) {
+        throw CustomException.notFound('User not found', undefined, { id });
+      }
       return updatedUser;
     } catch (error) {
       throw CustomException.from(error);
     }
   }
 
-  async deleteUser(id: string): Promise<void> {
+  async delete(id: string): Promise<void> {
     try {
-      await this.usersRepository.delete(id);
+      const deletedUser = await this.usersRepository.delete(id);
+      if (!deletedUser) {
+        throw CustomException.notFound('User not found', undefined, { id });
+      }
+      return;
     } catch (error) {
       throw CustomException.from(error);
     }

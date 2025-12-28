@@ -1,5 +1,7 @@
 import { AppModule } from '@/app.module';
+import { CustomValidationPipe } from '@/common/pipes/custom-validation.pipe';
 import { setupSwagger } from '@/config/swagger/swagger.config';
+import { VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from 'nestjs-pino';
@@ -16,6 +18,12 @@ async function bootstrap() {
   app.useLogger(logger);
   app.flushLogs();
   app.enableShutdownHooks();
+  app.useGlobalPipes(new CustomValidationPipe());
+  app.enableVersioning({
+    type: VersioningType.URI,
+    defaultVersion: '1',
+    prefix: 'api/v',
+  });
   setupSwagger(app);
 
   // Start the applications

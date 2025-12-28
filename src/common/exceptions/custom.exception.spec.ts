@@ -93,6 +93,7 @@ describe('CustomException', () => {
       ['forbidden', CustomExceptionKind.forbidden],
       ['notFound', CustomExceptionKind.notFound],
       ['badRequest', CustomExceptionKind.badRequest],
+      ['conflict', CustomExceptionKind.conflict],
       ['internalServerError', CustomExceptionKind.internalServerError],
     ])(
       'should create exception with correct kind using %s()',
@@ -159,6 +160,22 @@ describe('CustomException', () => {
       expect(exception.details).toEqual(details);
       expect(exception.details?.key1).toBe('value1');
       expect(exception.details?.key2).toBe('value2');
+    });
+
+    it('should create conflict exception with cause and details', () => {
+      // Arrange
+      const message = 'Resource conflict';
+      const cause = new Error('Duplicate entry');
+      const details = { resource: 'user', field: 'email' };
+
+      // Act
+      const exception = CustomException.conflict(message, cause, details);
+
+      // Assert
+      expect(exception.kind).toBe(CustomExceptionKind.conflict);
+      expect(exception.message).toBe(message);
+      expect(exception.cause).toBe(cause);
+      expect(exception.details).toEqual(details);
     });
   });
 

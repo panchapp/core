@@ -52,6 +52,7 @@ describe('CustomExceptionFilter', () => {
     [CustomExceptionKind.forbidden, HttpStatus.FORBIDDEN],
     [CustomExceptionKind.notFound, HttpStatus.NOT_FOUND],
     [CustomExceptionKind.badRequest, HttpStatus.BAD_REQUEST],
+    [CustomExceptionKind.conflict, HttpStatus.CONFLICT],
     [CustomExceptionKind.internalServerError, HttpStatus.INTERNAL_SERVER_ERROR],
   ])('should map %s exceptions to HTTP %s', (kind, expectedStatus) => {
     // Arrange
@@ -75,17 +76,13 @@ describe('CustomExceptionFilter', () => {
         {
           statusCode: number;
           message: string;
-          kind: string;
           timestamp: string;
-          path: string;
         },
       ]
     )?.[0];
     expect(jsonCall).toMatchObject({
       statusCode: expectedStatus,
       message: 'Something went wrong',
-      kind,
-      path: request.url,
     });
     expect(jsonCall?.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
   });
@@ -104,7 +101,6 @@ describe('CustomExceptionFilter', () => {
     expect(logger.error).toHaveBeenCalledTimes(1);
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({
-        kind: 'unknown-kind',
         message: 'Unexpected scenario',
       }),
     );
@@ -117,18 +113,82 @@ describe('CustomExceptionFilter', () => {
         {
           statusCode: number;
           message: string;
-          kind: string;
           timestamp: string;
-          path: string;
         },
       ]
     )?.[0];
     expect(jsonCall).toMatchObject({
       statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
       message: 'Unexpected scenario',
-      kind: 'unknown-kind',
-      path: request.url,
     });
+    expect(jsonCall?.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+  });
+
+  it('should include validation errors in response when present', () => {
+    // Arrange
+    const validationErrors = [
+      { field: 'email', message: 'email must be an email' },
+      {
+        field: 'name',
+        message: 'name must be longer than or equal to 3 characters',
+      },
+    ];
+    const error = CustomException.validation('Validation failed', undefined, {
+      errors: validationErrors,
+    });
+
+    // Act
+    filter.catch(error, host);
+
+    // Assert
+    expect(logger.error).toHaveBeenCalledTimes(1);
+    expect(response.status).toHaveBeenCalledWith(HttpStatus.BAD_REQUEST);
+    expect(response.json).toHaveBeenCalledTimes(1);
+    const jsonCall = (
+      response.json.mock.calls[0] as unknown as [
+        {
+          statusCode: number;
+          message: string;
+          timestamp: string;
+          errors: Array<{ field: string; message: string }>;
+        },
+      ]
+    )?.[0];
+    expect(jsonCall).toMatchObject({
+      statusCode: HttpStatus.BAD_REQUEST,
+      message: 'Validation failed',
+      errors: validationErrors,
+    });
+    expect(jsonCall?.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+  });
+
+  it('should not include errors property when validation errors are not present', () => {
+    // Arrange
+    const error = CustomException.notFound('Resource not found', undefined, {
+      resourceId: '123',
+    });
+
+    // Act
+    filter.catch(error, host);
+
+    // Assert
+    expect(response.status).toHaveBeenCalledWith(HttpStatus.NOT_FOUND);
+    expect(response.json).toHaveBeenCalledTimes(1);
+    const jsonCall = (
+      response.json.mock.calls[0] as unknown as [
+        {
+          statusCode: number;
+          message: string;
+          timestamp: string;
+          errors?: unknown;
+        },
+      ]
+    )?.[0];
+    expect(jsonCall).toMatchObject({
+      statusCode: HttpStatus.NOT_FOUND,
+      message: 'Resource not found',
+    });
+    expect(jsonCall?.errors).toBeUndefined();
     expect(jsonCall?.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
   });
 });

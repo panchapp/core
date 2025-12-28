@@ -88,10 +88,12 @@
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s",
+      "**/dtos/mappers/*.ts",
       "!config/**",
       "!database/**",
       "!**/tokens/*.ts",
-      "!**/dtos/*.ts",
+      "!**/dtos/request/*.ts",
+      "!**/dtos/response/*.ts",
       "!main.ts",
       "!**/*.module.ts",
       "!**/*.model.ts"
