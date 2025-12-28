@@ -12,17 +12,22 @@ interface PostgreSQLError extends Error {
   column?: string;
 }
 
+const KEY_PATTERN = /Key \(([^)]+)\)=\(([^)]+)\)/;
+
 function snakeToCamel(str: string): string {
-  return str.replace(/_([a-z])/g, (_match: string, letter: string): string => {
-    return letter.toUpperCase();
-  });
+  return str.replaceAll(
+    /_([a-z])/g,
+    (_match: string, letter: string): string => {
+      return letter.toUpperCase();
+    },
+  );
 }
 
 function extractColumnValuePairs(
   error: PostgreSQLError,
 ): Array<{ column: string; value: string }> {
   if (error.detail) {
-    const match = error.detail.match(/Key \(([^)]+)\)=\(([^)]+)\)/);
+    const match = KEY_PATTERN.exec(error.detail);
     if (match) {
       const columns = match[1].split(',').map((col) => col.trim());
       const values = match[2].split(',').map((val) => val.trim());
@@ -63,10 +68,9 @@ export function handlePgDatabaseError(
 
   const pgError = error as PostgreSQLError;
 
-  switch (pgError.code) {
-    case POSTGRES_ERROR_CODE.UNIQUE_CONSTRAINT_VIOLATION:
-      return handleUniqueConstraintViolation(pgError);
-    default:
-      return CustomException.persistence(defaultMessage, error);
+  if (pgError.code === POSTGRES_ERROR_CODE.UNIQUE_CONSTRAINT_VIOLATION) {
+    return handleUniqueConstraintViolation(pgError);
   }
+
+  return CustomException.persistence(defaultMessage, error);
 }

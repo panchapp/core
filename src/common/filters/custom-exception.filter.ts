@@ -47,7 +47,7 @@ export class CustomExceptionFilter implements ExceptionFilter {
     };
 
     // Include validation errors if present
-    if (exception.details && exception.details.errors) {
+    if (exception.details?.errors) {
       responseBody.errors = exception.details.errors;
     }
 
