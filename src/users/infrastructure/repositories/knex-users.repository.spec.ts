@@ -1,8 +1,8 @@
-import { CustomException } from '@/common/exceptions/custom.exception';
-import { UserCreateDto } from '@/users/domain/dtos/user-create.dto';
-import { UserUpdateDto } from '@/users/domain/dtos/user-update.dto';
+import { handlePgDatabaseError } from '@/common/utils/pg-database-error.util';
 import { UserEntity } from '@/users/domain/entities/user.entity';
 import { USERS_TABLE_TOKEN } from '@/users/domain/tokens/users.tokens';
+import { UserCreationValueObject } from '@/users/domain/value-objects/user-creation.value-object';
+import { UserUpdateValueObject } from '@/users/domain/value-objects/user-update.value-object';
 import { KnexUsersRepository } from '@/users/infrastructure/repositories/knex-users.repository';
 import { UserPersistenceMapper } from '@/users/infrastructure/repositories/mappers/user-persistence.mapper';
 import { UserDbModel } from '@/users/infrastructure/repositories/models/user-db.model';
@@ -12,6 +12,9 @@ import { Knex } from 'knex';
 jest.mock(
   '@/users/infrastructure/repositories/mappers/user-persistence.mapper',
 );
+
+// Mock the pg-database-error utility
+jest.mock('@/common/utils/pg-database-error.util');
 
 describe('KnexUsersRepository', () => {
   let repository: KnexUsersRepository;
@@ -24,9 +27,11 @@ describe('KnexUsersRepository', () => {
     delete: jest.Mock;
     returning: jest.Mock;
     first: jest.Mock;
+    limit: jest.Mock;
   };
   let toEntitySpy: jest.SpyInstance;
-  let toDbModelSpy: jest.SpyInstance;
+  let toDbModelFromCreationValueObjectSpy: jest.SpyInstance;
+  let toDbModelFromUpdateValueObjectSpy: jest.SpyInstance;
 
   const sampleDbUser: UserDbModel = {
     id: 'user-1',
@@ -56,6 +61,7 @@ describe('KnexUsersRepository', () => {
       delete: jest.fn().mockReturnThis(),
       returning: jest.fn().mockReturnThis(),
       first: jest.fn(),
+      limit: jest.fn().mockReturnThis(),
     };
 
     // Create a mock Knex instance as a function
@@ -66,13 +72,17 @@ describe('KnexUsersRepository', () => {
 
     // Create spies for the mapper methods
     toEntitySpy = jest.spyOn(UserPersistenceMapper, 'toEntity');
-    toDbModelSpy = jest.spyOn(UserPersistenceMapper, 'toDbModel');
+    toDbModelFromCreationValueObjectSpy = jest.spyOn(
+      UserPersistenceMapper,
+      'toDbModelFromCreationValueObject',
+    );
+    toDbModelFromUpdateValueObjectSpy = jest.spyOn(
+      UserPersistenceMapper,
+      'toDbModelFromUpdateValueObject',
+    );
 
     // Create repository instance
     repository = new KnexUsersRepository(mockKnex as unknown as Knex);
-
-    // Reset all mocks
-    jest.clearAllMocks();
   });
 
   afterEach(() => {
@@ -141,24 +151,22 @@ describe('KnexUsersRepository', () => {
       expect(result[1]).toEqual(entity2);
     });
 
-    it('should throw CustomException when database error occurs', async () => {
+    it('should call handlePgDatabaseError when database error occurs', async () => {
       // Arrange
       const dbError = new Error('Database connection failed');
       mockQueryBuilder.select.mockRejectedValue(dbError);
+      (handlePgDatabaseError as jest.Mock).mockReturnValue(
+        new Error('handled error'),
+      );
 
       // Act
-      const promise = repository.findAll();
+      await repository.findAll().catch(() => undefined);
 
       // Assert
-      try {
-        await promise;
-      } catch (error) {
-        expect(error).toBeInstanceOf(CustomException);
-        if (error instanceof CustomException) {
-          expect(error.kind).toBe('persistence');
-          expect(error.message).toBe('Error finding all users');
-        }
-      }
+      expect(handlePgDatabaseError).toHaveBeenCalledWith(
+        dbError,
+        'Error finding all users',
+      );
     });
   });
 
@@ -198,25 +206,23 @@ describe('KnexUsersRepository', () => {
       expect(result).toBeNull();
     });
 
-    it('should throw CustomException when database error occurs', async () => {
+    it('should call handlePgDatabaseError when database error occurs', async () => {
       // Arrange
       const dbError = new Error('Database query failed');
       mockQueryBuilder.where.mockReturnThis();
       mockQueryBuilder.first.mockRejectedValue(dbError);
+      (handlePgDatabaseError as jest.Mock).mockReturnValue(
+        new Error('handled error'),
+      );
 
       // Act
-      const promise = repository.findById('user-1');
+      await repository.findById('user-1').catch(() => undefined);
 
       // Assert
-      try {
-        await promise;
-      } catch (error) {
-        expect(error).toBeInstanceOf(CustomException);
-        if (error instanceof CustomException) {
-          expect(error.kind).toBe('persistence');
-          expect(error.message).toBe('Error finding user by id');
-        }
-      }
+      expect(handlePgDatabaseError).toHaveBeenCalledWith(
+        dbError,
+        'Error finding user by id',
+      );
     });
   });
 
@@ -258,39 +264,38 @@ describe('KnexUsersRepository', () => {
       expect(result).toBeNull();
     });
 
-    it('should throw CustomException when database error occurs', async () => {
+    it('should call handlePgDatabaseError when database error occurs', async () => {
       // Arrange
       const dbError = new Error('Database query failed');
       mockQueryBuilder.where.mockReturnThis();
       mockQueryBuilder.first.mockRejectedValue(dbError);
+      (handlePgDatabaseError as jest.Mock).mockReturnValue(
+        new Error('handled error'),
+      );
 
       // Act
-      const promise = repository.findByEmail('user@example.com');
+      await repository.findByEmail('user@example.com').catch(() => undefined);
 
       // Assert
-      try {
-        await promise;
-      } catch (error) {
-        expect(error).toBeInstanceOf(CustomException);
-        if (error instanceof CustomException) {
-          expect(error.kind).toBe('persistence');
-          expect(error.message).toBe('Error finding user by email');
-        }
-      }
+      expect(handlePgDatabaseError).toHaveBeenCalledWith(
+        dbError,
+        'Error finding user by email',
+      );
     });
   });
 
   describe('create', () => {
-    const createDto: UserCreateDto = {
+    const createDto = UserCreationValueObject.create({
       email: 'new-user@example.com',
       name: 'New User',
-      googleId: null,
+      googleId: 'google-123',
       isSuperAdmin: false,
-    };
+    });
 
     const dbModelForCreate: Partial<UserDbModel> = {
       email: 'new-user@example.com',
       name: 'New User',
+      google_id: 'google-123',
       is_super_admin: false,
     };
 
@@ -298,7 +303,7 @@ describe('KnexUsersRepository', () => {
       id: 'user-new',
       email: 'new-user@example.com',
       name: 'New User',
-      google_id: null,
+      google_id: 'google-123',
       is_super_admin: false,
       created_at: new Date('2024-01-02T00:00:00.000Z'),
     };
@@ -307,78 +312,102 @@ describe('KnexUsersRepository', () => {
       id: 'user-new',
       email: 'new-user@example.com',
       name: 'New User',
-      googleId: null,
+      googleId: 'google-123',
       isSuperAdmin: false,
       createdAt: new Date('2024-01-02T00:00:00.000Z'),
     });
 
     it('should create and return user when successful', async () => {
       // Arrange
-      toDbModelSpy.mockReturnValue(dbModelForCreate);
+      toDbModelFromCreationValueObjectSpy.mockReturnValue(dbModelForCreate);
       mockQueryBuilder.insert.mockReturnThis();
-      mockQueryBuilder.returning.mockReturnThis();
-      mockQueryBuilder.first.mockResolvedValue(createdDbUser);
+      mockQueryBuilder.returning.mockResolvedValue([createdDbUser]);
       toEntitySpy.mockReturnValue(createdEntity);
 
       // Act
       const result = await repository.create(createDto);
 
       // Assert
-      expect(toDbModelSpy).toHaveBeenCalledWith(createDto);
+      expect(toDbModelFromCreationValueObjectSpy).toHaveBeenCalledWith(
+        createDto,
+      );
       expect(mockKnex).toHaveBeenCalledWith(USERS_TABLE_TOKEN);
       expect(mockQueryBuilder.insert).toHaveBeenCalledWith(dbModelForCreate);
       expect(mockQueryBuilder.returning).toHaveBeenCalledWith('*');
-      expect(mockQueryBuilder.first).toHaveBeenCalledTimes(1);
       expect(toEntitySpy).toHaveBeenCalledWith(createdDbUser);
       expect(result).toEqual(createdEntity);
     });
 
     it('should return null when insert returns no result', async () => {
       // Arrange
-      toDbModelSpy.mockReturnValue(dbModelForCreate);
+      toDbModelFromCreationValueObjectSpy.mockReturnValue(dbModelForCreate);
       mockQueryBuilder.insert.mockReturnThis();
-      mockQueryBuilder.returning.mockReturnThis();
-      mockQueryBuilder.first.mockResolvedValue(undefined);
+      mockQueryBuilder.returning.mockResolvedValue(undefined);
 
       // Act
       const result = await repository.create(createDto);
 
       // Assert
-      expect(toDbModelSpy).toHaveBeenCalledWith(createDto);
+      expect(toDbModelFromCreationValueObjectSpy).toHaveBeenCalledWith(
+        createDto,
+      );
       expect(mockQueryBuilder.insert).toHaveBeenCalledWith(dbModelForCreate);
       expect(toEntitySpy).not.toHaveBeenCalled();
       expect(result).toBeNull();
     });
 
-    it('should throw CustomException when database error occurs', async () => {
+    it('should call handlePgDatabaseError when database error occurs', async () => {
       // Arrange
       const dbError = new Error('Unique constraint violation');
-      toDbModelSpy.mockReturnValue(dbModelForCreate);
+      toDbModelFromCreationValueObjectSpy.mockReturnValue(dbModelForCreate);
       mockQueryBuilder.insert.mockReturnThis();
-      mockQueryBuilder.returning.mockReturnThis();
-      mockQueryBuilder.first.mockRejectedValue(dbError);
+      mockQueryBuilder.returning.mockRejectedValue(dbError);
+      (handlePgDatabaseError as jest.Mock).mockReturnValue(
+        new Error('handled error'),
+      );
 
       // Act
-      const promise = repository.create(createDto);
+      await repository.create(createDto).catch(() => undefined);
 
       // Assert
-      try {
-        await promise;
-      } catch (error) {
-        expect(error).toBeInstanceOf(CustomException);
-        if (error instanceof CustomException) {
-          expect(error.kind).toBe('persistence');
-          expect(error.message).toBe('Error creating user');
-        }
-      }
+      expect(handlePgDatabaseError).toHaveBeenCalledWith(
+        dbError,
+        'Error creating user',
+      );
+    });
+
+    it('should call handlePgDatabaseError when unique constraint violation occurs', async () => {
+      // Arrange
+      const pgError = {
+        code: '23505',
+        detail: 'Key (email)=(test@example.com) already exists.',
+        constraint: 'users_email_unique',
+        table: 'users',
+        column: 'email',
+      };
+      toDbModelFromCreationValueObjectSpy.mockReturnValue(dbModelForCreate);
+      mockQueryBuilder.insert.mockReturnThis();
+      mockQueryBuilder.returning.mockRejectedValue(pgError);
+      (handlePgDatabaseError as jest.Mock).mockReturnValue(
+        new Error('handled error'),
+      );
+
+      // Act
+      await repository.create(createDto).catch(() => undefined);
+
+      // Assert
+      expect(handlePgDatabaseError).toHaveBeenCalledWith(
+        pgError,
+        'Error creating user',
+      );
     });
   });
 
   describe('update', () => {
-    const updateDto: UserUpdateDto = {
+    const updateDto = UserUpdateValueObject.create({
       name: 'Updated Name',
       isSuperAdmin: true,
-    };
+    });
 
     const dbModelForUpdate: Partial<UserDbModel> = {
       name: 'Updated Name',
@@ -399,105 +428,206 @@ describe('KnexUsersRepository', () => {
 
     it('should update and return user when successful', async () => {
       // Arrange
-      toDbModelSpy.mockReturnValue(dbModelForUpdate);
+      toDbModelFromUpdateValueObjectSpy.mockReturnValue(dbModelForUpdate);
       mockQueryBuilder.where.mockReturnThis();
+      mockQueryBuilder.limit.mockReturnThis();
       mockQueryBuilder.update.mockReturnThis();
-      mockQueryBuilder.returning.mockReturnThis();
-      mockQueryBuilder.first.mockResolvedValue(updatedDbUser);
+      mockQueryBuilder.returning.mockResolvedValue([updatedDbUser]);
       toEntitySpy.mockReturnValue(updatedEntity);
 
       // Act
       const result = await repository.update('user-1', updateDto);
 
       // Assert
-      expect(toDbModelSpy).toHaveBeenCalledWith(updateDto);
+      expect(toDbModelFromUpdateValueObjectSpy).toHaveBeenCalledWith(updateDto);
       expect(mockKnex).toHaveBeenCalledWith(USERS_TABLE_TOKEN);
       expect(mockQueryBuilder.where).toHaveBeenCalledWith({ id: 'user-1' });
+      expect(mockQueryBuilder.limit).toHaveBeenCalledWith(1);
       expect(mockQueryBuilder.update).toHaveBeenCalledWith(dbModelForUpdate);
       expect(mockQueryBuilder.returning).toHaveBeenCalledWith('*');
-      expect(mockQueryBuilder.first).toHaveBeenCalledTimes(1);
       expect(toEntitySpy).toHaveBeenCalledWith(updatedDbUser);
       expect(result).toEqual(updatedEntity);
     });
 
     it('should return null when update returns no result', async () => {
       // Arrange
-      toDbModelSpy.mockReturnValue(dbModelForUpdate);
+      toDbModelFromUpdateValueObjectSpy.mockReturnValue(dbModelForUpdate);
       mockQueryBuilder.where.mockReturnThis();
+      mockQueryBuilder.limit.mockReturnThis();
       mockQueryBuilder.update.mockReturnThis();
-      mockQueryBuilder.returning.mockReturnThis();
-      mockQueryBuilder.first.mockResolvedValue(undefined);
+      mockQueryBuilder.returning.mockResolvedValue(undefined);
 
       // Act
       const result = await repository.update('user-1', updateDto);
 
       // Assert
-      expect(toDbModelSpy).toHaveBeenCalledWith(updateDto);
+      expect(toDbModelFromUpdateValueObjectSpy).toHaveBeenCalledWith(updateDto);
       expect(mockQueryBuilder.where).toHaveBeenCalledWith({ id: 'user-1' });
+      expect(mockQueryBuilder.limit).toHaveBeenCalledWith(1);
       expect(mockQueryBuilder.update).toHaveBeenCalledWith(dbModelForUpdate);
       expect(toEntitySpy).not.toHaveBeenCalled();
       expect(result).toBeNull();
     });
 
-    it('should throw CustomException when database error occurs', async () => {
+    it('should return user from findById when update object is empty', async () => {
       // Arrange
-      const dbError = new Error('Update constraint violation');
-      toDbModelSpy.mockReturnValue(dbModelForUpdate);
+      const emptyUpdateDto = UserUpdateValueObject.create({});
+      const emptyDbModel: Partial<UserDbModel> = {};
+      toDbModelFromUpdateValueObjectSpy.mockReturnValue(emptyDbModel);
       mockQueryBuilder.where.mockReturnThis();
-      mockQueryBuilder.update.mockReturnThis();
-      mockQueryBuilder.returning.mockReturnThis();
-      mockQueryBuilder.first.mockRejectedValue(dbError);
+      mockQueryBuilder.first.mockResolvedValue(sampleDbUser);
+      toEntitySpy.mockReturnValue(sampleEntity);
 
       // Act
-      const promise = repository.update('user-1', updateDto);
+      const result = await repository.update('user-1', emptyUpdateDto);
 
       // Assert
-      try {
-        await promise;
-      } catch (error) {
-        expect(error).toBeInstanceOf(CustomException);
-        if (error instanceof CustomException) {
-          expect(error.kind).toBe('persistence');
-          expect(error.message).toBe('Error updating user');
-        }
-      }
+      expect(toDbModelFromUpdateValueObjectSpy).toHaveBeenCalledWith(
+        emptyUpdateDto,
+      );
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith({ id: 'user-1' });
+      expect(mockQueryBuilder.first).toHaveBeenCalledTimes(1);
+      expect(mockQueryBuilder.update).not.toHaveBeenCalled();
+      expect(mockQueryBuilder.limit).not.toHaveBeenCalled();
+      expect(mockQueryBuilder.returning).not.toHaveBeenCalled();
+      expect(toEntitySpy).toHaveBeenCalledWith(sampleDbUser);
+      expect(result).toEqual(sampleEntity);
+    });
+
+    it('should return null from findById when update object is empty and user not found', async () => {
+      // Arrange
+      const emptyUpdateDto = UserUpdateValueObject.create({});
+      const emptyDbModel: Partial<UserDbModel> = {};
+      toDbModelFromUpdateValueObjectSpy.mockReturnValue(emptyDbModel);
+      mockQueryBuilder.where.mockReturnThis();
+      mockQueryBuilder.first.mockResolvedValue(undefined);
+
+      // Act
+      const result = await repository.update('non-existent-id', emptyUpdateDto);
+
+      // Assert
+      expect(toDbModelFromUpdateValueObjectSpy).toHaveBeenCalledWith(
+        emptyUpdateDto,
+      );
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith({
+        id: 'non-existent-id',
+      });
+      expect(mockQueryBuilder.first).toHaveBeenCalledTimes(1);
+      expect(mockQueryBuilder.update).not.toHaveBeenCalled();
+      expect(mockQueryBuilder.limit).not.toHaveBeenCalled();
+      expect(mockQueryBuilder.returning).not.toHaveBeenCalled();
+      expect(toEntitySpy).not.toHaveBeenCalled();
+      expect(result).toBeNull();
+    });
+
+    it('should call handlePgDatabaseError when database error occurs', async () => {
+      // Arrange
+      const dbError = new Error('Update constraint violation');
+      toDbModelFromUpdateValueObjectSpy.mockReturnValue(dbModelForUpdate);
+      mockQueryBuilder.where.mockReturnThis();
+      mockQueryBuilder.limit.mockReturnThis();
+      mockQueryBuilder.update.mockReturnThis();
+      mockQueryBuilder.returning.mockRejectedValue(dbError);
+      (handlePgDatabaseError as jest.Mock).mockReturnValue(
+        new Error('handled error'),
+      );
+
+      // Act
+      await repository.update('user-1', updateDto).catch(() => undefined);
+
+      // Assert
+      expect(handlePgDatabaseError).toHaveBeenCalledWith(
+        dbError,
+        'Error updating user',
+      );
     });
   });
 
   describe('delete', () => {
-    it('should delete user successfully', async () => {
+    it('should delete user successfully and return the deleted user', async () => {
       // Arrange
       mockQueryBuilder.where.mockReturnThis();
-      mockQueryBuilder.delete.mockResolvedValue(1);
+      mockQueryBuilder.limit.mockReturnThis();
+      mockQueryBuilder.delete.mockReturnThis();
+      mockQueryBuilder.returning.mockResolvedValue([sampleDbUser]);
+      toEntitySpy.mockReturnValue(sampleEntity);
 
       // Act
-      await repository.delete('user-1');
+      const result = await repository.delete('user-1');
 
       // Assert
       expect(mockKnex).toHaveBeenCalledWith(USERS_TABLE_TOKEN);
       expect(mockQueryBuilder.where).toHaveBeenCalledWith({ id: 'user-1' });
+      expect(mockQueryBuilder.limit).toHaveBeenCalledWith(1);
       expect(mockQueryBuilder.delete).toHaveBeenCalledTimes(1);
+      expect(mockQueryBuilder.returning).toHaveBeenCalledWith('*');
+      expect(toEntitySpy).toHaveBeenCalledWith(sampleDbUser);
+      expect(result).toEqual(sampleEntity);
     });
 
-    it('should throw CustomException when database error occurs', async () => {
+    it('should return null when delete returns no result', async () => {
+      // Arrange
+      mockQueryBuilder.where.mockReturnThis();
+      mockQueryBuilder.limit.mockReturnThis();
+      mockQueryBuilder.delete.mockReturnThis();
+      mockQueryBuilder.returning.mockResolvedValue(undefined);
+
+      // Act
+      const result = await repository.delete('non-existent-id');
+
+      // Assert
+      expect(mockKnex).toHaveBeenCalledWith(USERS_TABLE_TOKEN);
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith({
+        id: 'non-existent-id',
+      });
+      expect(mockQueryBuilder.limit).toHaveBeenCalledWith(1);
+      expect(mockQueryBuilder.delete).toHaveBeenCalledTimes(1);
+      expect(mockQueryBuilder.returning).toHaveBeenCalledWith('*');
+      expect(toEntitySpy).not.toHaveBeenCalled();
+      expect(result).toBeNull();
+    });
+
+    it('should return null when delete returns empty array', async () => {
+      // Arrange
+      mockQueryBuilder.where.mockReturnThis();
+      mockQueryBuilder.limit.mockReturnThis();
+      mockQueryBuilder.delete.mockReturnThis();
+      mockQueryBuilder.returning.mockResolvedValue([]);
+
+      // Act
+      const result = await repository.delete('non-existent-id');
+
+      // Assert
+      expect(mockKnex).toHaveBeenCalledWith(USERS_TABLE_TOKEN);
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith({
+        id: 'non-existent-id',
+      });
+      expect(mockQueryBuilder.limit).toHaveBeenCalledWith(1);
+      expect(mockQueryBuilder.delete).toHaveBeenCalledTimes(1);
+      expect(mockQueryBuilder.returning).toHaveBeenCalledWith('*');
+      expect(toEntitySpy).not.toHaveBeenCalled();
+      expect(result).toBeNull();
+    });
+
+    it('should call handlePgDatabaseError when database error occurs', async () => {
       // Arrange
       const dbError = new Error('Delete constraint violation');
       mockQueryBuilder.where.mockReturnThis();
-      mockQueryBuilder.delete.mockRejectedValue(dbError);
+      mockQueryBuilder.limit.mockReturnThis();
+      mockQueryBuilder.delete.mockReturnThis();
+      mockQueryBuilder.returning.mockRejectedValue(dbError);
+      (handlePgDatabaseError as jest.Mock).mockReturnValue(
+        new Error('handled error'),
+      );
 
       // Act
-      const promise = repository.delete('user-1');
+      await repository.delete('user-1').catch(() => undefined);
 
       // Assert
-      try {
-        await promise;
-      } catch (error) {
-        expect(error).toBeInstanceOf(CustomException);
-        if (error instanceof CustomException) {
-          expect(error.kind).toBe('persistence');
-          expect(error.message).toBe('Error deleting user');
-        }
-      }
+      expect(handlePgDatabaseError).toHaveBeenCalledWith(
+        dbError,
+        'Error deleting user',
+      );
     });
   });
 });

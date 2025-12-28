@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 
-@Controller('api/v1/auth')
+@Controller('auth')
 export class AuthController {
   @Get('login')
   login() {

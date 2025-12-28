@@ -1,10 +1,11 @@
-import { CustomException } from '@/common/exceptions/custom.exception';
+import { isEmptyObject } from '@/common/utils/object-utils';
+import { handlePgDatabaseError } from '@/common/utils/pg-database-error.util';
 import { KNEX_DATABASE_TOKEN } from '@/database/database.tokens';
-import { UserCreateDto } from '@/users/domain/dtos/user-create.dto';
-import { UserUpdateDto } from '@/users/domain/dtos/user-update.dto';
 import { UserEntity } from '@/users/domain/entities/user.entity';
 import { UsersRepository } from '@/users/domain/repositories/users.repository';
 import { USERS_TABLE_TOKEN } from '@/users/domain/tokens/users.tokens';
+import { UserCreationValueObject } from '@/users/domain/value-objects/user-creation.value-object';
+import { UserUpdateValueObject } from '@/users/domain/value-objects/user-update.value-object';
 import { UserPersistenceMapper } from '@/users/infrastructure/repositories/mappers/user-persistence.mapper';
 import { UserDbModel } from '@/users/infrastructure/repositories/models/user-db.model';
 import { Inject, Injectable } from '@nestjs/common';
@@ -20,9 +21,10 @@ export class KnexUsersRepository implements UsersRepository {
       const foundDbUsers = await this.db<UserDbModel>(this.tableName).select(
         '*',
       );
+
       return foundDbUsers.map((user) => UserPersistenceMapper.toEntity(user));
     } catch (error) {
-      throw CustomException.persistence('Error finding all users', error);
+      throw handlePgDatabaseError(error, 'Error finding all users');
     }
   }
 
@@ -31,9 +33,10 @@ export class KnexUsersRepository implements UsersRepository {
       const foundDbUser = await this.db<UserDbModel>(this.tableName)
         .where({ id })
         .first();
+
       return foundDbUser ? UserPersistenceMapper.toEntity(foundDbUser) : null;
     } catch (error) {
-      throw CustomException.persistence('Error finding user by id', error);
+      throw handlePgDatabaseError(error, 'Error finding user by id');
     }
   }
 
@@ -42,48 +45,71 @@ export class KnexUsersRepository implements UsersRepository {
       const foundDbUser = await this.db<UserDbModel>(this.tableName)
         .where({ email })
         .first();
+
       return foundDbUser ? UserPersistenceMapper.toEntity(foundDbUser) : null;
     } catch (error) {
-      throw CustomException.persistence('Error finding user by email', error);
+      throw handlePgDatabaseError(error, 'Error finding user by email');
     }
   }
 
-  async create(user: UserCreateDto): Promise<UserEntity | null> {
+  async create(
+    userValueObject: UserCreationValueObject,
+  ): Promise<UserEntity | null> {
     try {
-      const userDbModel = UserPersistenceMapper.toDbModel(user);
+      const userDbModel =
+        UserPersistenceMapper.toDbModelFromCreationValueObject(userValueObject);
+
       const createdDbUser = await this.db<UserDbModel>(this.tableName)
         .insert(userDbModel)
-        .returning('*')
-        .first();
-      return createdDbUser
-        ? UserPersistenceMapper.toEntity(createdDbUser)
+        .returning('*');
+
+      return createdDbUser && createdDbUser.length > 0
+        ? UserPersistenceMapper.toEntity(createdDbUser[0])
         : null;
     } catch (error) {
-      throw CustomException.persistence('Error creating user', error);
+      throw handlePgDatabaseError(error, 'Error creating user');
     }
   }
 
-  async update(id: string, user: UserUpdateDto): Promise<UserEntity | null> {
+  async update(
+    id: string,
+    userValueObject: UserUpdateValueObject,
+  ): Promise<UserEntity | null> {
     try {
-      const userDbModel = UserPersistenceMapper.toDbModel(user);
+      const userDbModel =
+        UserPersistenceMapper.toDbModelFromUpdateValueObject(userValueObject);
+
+      if (isEmptyObject(userDbModel)) {
+        return this.findById(id);
+      }
+
       const updatedDbUser = await this.db<UserDbModel>(this.tableName)
         .where({ id })
+        .limit(1)
         .update(userDbModel)
-        .returning('*')
-        .first();
-      return updatedDbUser
-        ? UserPersistenceMapper.toEntity(updatedDbUser)
+        .returning('*');
+
+      return updatedDbUser && updatedDbUser.length > 0
+        ? UserPersistenceMapper.toEntity(updatedDbUser[0])
         : null;
     } catch (error) {
-      throw CustomException.persistence('Error updating user', error);
+      throw handlePgDatabaseError(error, 'Error updating user');
     }
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(id: string): Promise<UserEntity | null> {
     try {
-      await this.db(this.tableName).where({ id }).delete();
+      const deletedDbUser = await this.db<UserDbModel>(this.tableName)
+        .where({ id })
+        .limit(1)
+        .delete()
+        .returning('*');
+
+      return deletedDbUser && deletedDbUser.length > 0
+        ? UserPersistenceMapper.toEntity(deletedDbUser[0])
+        : null;
     } catch (error) {
-      throw CustomException.persistence('Error deleting user', error);
+      throw handlePgDatabaseError(error, 'Error deleting user');
     }
   }
 }

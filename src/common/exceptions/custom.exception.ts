@@ -5,6 +5,7 @@ export enum CustomExceptionKind {
   forbidden = 'forbidden',
   notFound = 'not_found',
   badRequest = 'bad_request',
+  conflict = 'conflict',
   internalServerError = 'internal_server_error',
 }
 
@@ -94,6 +95,16 @@ export class CustomException extends Error {
     details?: Record<string, unknown>,
   ) {
     return new CustomException(CustomExceptionKind.badRequest, message, cause, {
+      ...details,
+    });
+  }
+
+  static conflict(
+    message: string,
+    cause?: unknown,
+    details?: Record<string, unknown>,
+  ) {
+    return new CustomException(CustomExceptionKind.conflict, message, cause, {
       ...details,
     });
   }

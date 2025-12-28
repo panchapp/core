@@ -8,7 +8,7 @@ import {
   ExceptionFilter,
   HttpStatus,
 } from '@nestjs/common';
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { InjectPinoLogger, PinoLogger } from 'nestjs-pino';
 
 const statusByKind: Record<CustomExceptionKind, number> = {
@@ -18,6 +18,7 @@ const statusByKind: Record<CustomExceptionKind, number> = {
   [CustomExceptionKind.forbidden]: HttpStatus.FORBIDDEN,
   [CustomExceptionKind.notFound]: HttpStatus.NOT_FOUND,
   [CustomExceptionKind.badRequest]: HttpStatus.BAD_REQUEST,
+  [CustomExceptionKind.conflict]: HttpStatus.CONFLICT,
   [CustomExceptionKind.internalServerError]: HttpStatus.INTERNAL_SERVER_ERROR,
 };
 
@@ -31,7 +32,6 @@ export class CustomExceptionFilter implements ExceptionFilter {
   catch(exception: CustomException, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
 
     const status =
       statusByKind[exception.kind] ?? HttpStatus.INTERNAL_SERVER_ERROR;
@@ -40,12 +40,17 @@ export class CustomExceptionFilter implements ExceptionFilter {
       ...exception.toLogObject(),
     });
 
-    response.status(status).json({
+    const responseBody: Record<string, unknown> = {
       statusCode: status,
       message: exception.message,
-      kind: exception.kind,
       timestamp: exception.timestamp.toISOString(),
-      path: request.url,
-    });
+    };
+
+    // Include validation errors if present
+    if (exception.details && exception.details.errors) {
+      responseBody.errors = exception.details.errors;
+    }
+
+    response.status(status).json(responseBody);
   }
 }
