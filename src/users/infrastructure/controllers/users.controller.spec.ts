@@ -1,11 +1,14 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { UsersService } from '@/users/application/services/users.service';
+import { PaginatedEntity } from '@/users/domain/entities/paginated.entity';
 import { UserEntity } from '@/users/domain/entities/user.entity';
 import { UserCreationValueObject } from '@/users/domain/value-objects/user-creation.value-object';
+import { UserFindAllValueObject } from '@/users/domain/value-objects/user-find-all.value-object';
 import { UserUpdateValueObject } from '@/users/domain/value-objects/user-update.value-object';
-import { UserByEmailDto } from '@/users/infrastructure/controllers/dtos/input/user-by-email.dto';
-import { UserByIdDto } from '@/users/infrastructure/controllers/dtos/input/user-by-id.dto';
 import { UserCreateDto } from '@/users/infrastructure/controllers/dtos/input/user-create.dto';
+import { UserFindAllDto } from '@/users/infrastructure/controllers/dtos/input/user-find-all.dto';
+import { UserFindByEmailDto } from '@/users/infrastructure/controllers/dtos/input/user-find-by-email.dto';
+import { UserFindByIdDto } from '@/users/infrastructure/controllers/dtos/input/user-find-by-id.dto';
 import { UserUpdateDto } from '@/users/infrastructure/controllers/dtos/input/user-update.dto';
 import { UserDto } from '@/users/infrastructure/controllers/dtos/output/user.dto';
 import { UserDtoMapper } from '@/users/infrastructure/controllers/mappers/output/user-dto.mapper';
@@ -29,6 +32,7 @@ describe('UsersController', () => {
     email: 'user@example.com',
     name: 'Example User',
     createdAt: new Date('2024-01-01T00:00:00.000Z'),
+    isSuperAdmin: false,
   };
 
   beforeEach(() => {
@@ -49,73 +53,50 @@ describe('UsersController', () => {
   });
 
   describe('getAll', () => {
-    it('should return an array of UserDto when users are found', async () => {
+    it('should return paginated UserDto when users are found', async () => {
       // Arrange
-      const users = [sampleUser];
-      usersService.getAll.mockResolvedValue(users);
-      jest.spyOn(UserDtoMapper, 'toDtos').mockReturnValue([sampleUserDto]);
+      const queryDto: UserFindAllDto = {
+        page: 1,
+        limit: 10,
+      };
+      const paginatedEntity: PaginatedEntity<UserEntity> = {
+        items: [sampleUser],
+        totalCount: 1,
+        currentPage: 1,
+        totalPages: 1,
+      };
+      const paginatedDto = {
+        totalCount: 1,
+        currentPage: 1,
+        totalPages: 1,
+        items: [sampleUserDto],
+      };
+      usersService.getAll.mockResolvedValue(paginatedEntity);
+      jest.spyOn(UserDtoMapper, 'toPaginatedDto').mockReturnValue(paginatedDto);
 
       // Act
-      const result = await controller.getAll();
+      const result = await controller.getAll(queryDto);
 
       // Assert
       expect(usersService.getAll).toHaveBeenCalledTimes(1);
-      expect(UserDtoMapper.toDtos).toHaveBeenCalledWith(users);
-      expect(result).toEqual([sampleUserDto]);
-    });
-
-    it('should return an empty array when no users are found', async () => {
-      // Arrange
-      usersService.getAll.mockResolvedValue([]);
-      jest.spyOn(UserDtoMapper, 'toDtos').mockReturnValue([]);
-
-      // Act
-      const result = await controller.getAll();
-
-      // Assert
-      expect(usersService.getAll).toHaveBeenCalledTimes(1);
-      expect(UserDtoMapper.toDtos).toHaveBeenCalledWith([]);
-      expect(result).toEqual([]);
-    });
-
-    it('should handle multiple users', async () => {
-      // Arrange
-      const user2 = UserEntity.create({
-        id: 'user-2',
-        email: 'user2@example.com',
-        name: 'Another User',
-        googleId: 'google-123',
-        isSuperAdmin: true,
-        createdAt: new Date('2024-02-01T00:00:00.000Z'),
-      });
-      const users = [sampleUser, user2];
-      const userDtos: UserDto[] = [
-        sampleUserDto,
-        {
-          id: 'user-2',
-          email: 'user2@example.com',
-          name: 'Another User',
-          createdAt: new Date('2024-02-01T00:00:00.000Z'),
-        },
-      ];
-      usersService.getAll.mockResolvedValue(users);
-      jest.spyOn(UserDtoMapper, 'toDtos').mockReturnValue(userDtos);
-
-      // Act
-      const result = await controller.getAll();
-
-      // Assert
-      expect(usersService.getAll).toHaveBeenCalledTimes(1);
-      expect(UserDtoMapper.toDtos).toHaveBeenCalledWith(users);
-      expect(result).toEqual(userDtos);
-      expect(result).toHaveLength(2);
+      expect(usersService.getAll).toHaveBeenCalledWith(
+        expect.any(UserFindAllValueObject),
+      );
+      const getAllCall = usersService.getAll.mock.calls[0][0];
+      expect(getAllCall).toBeInstanceOf(UserFindAllValueObject);
+      expect(getAllCall.page).toBe(queryDto.page);
+      expect(getAllCall.limit).toBe(queryDto.limit);
+      expect(UserDtoMapper.toPaginatedDto).toHaveBeenCalledWith(
+        paginatedEntity,
+      );
+      expect(result).toEqual(paginatedDto);
     });
   });
 
   describe('getById', () => {
     it('should return a UserDto when user is found', async () => {
       // Arrange
-      const paramsDto: UserByIdDto = { id: 'user-1' };
+      const paramsDto: UserFindByIdDto = { id: 'user-1' };
       usersService.getById.mockResolvedValue(sampleUser);
       jest.spyOn(UserDtoMapper, 'toDto').mockReturnValue(sampleUserDto);
 
@@ -133,7 +114,7 @@ describe('UsersController', () => {
   describe('getByEmail', () => {
     it('should return a UserDto when user is found by email', async () => {
       // Arrange
-      const paramsDto: UserByEmailDto = { email: 'user@example.com' };
+      const paramsDto: UserFindByEmailDto = { email: 'user@example.com' };
       usersService.getByEmail.mockResolvedValue(sampleUser);
       jest.spyOn(UserDtoMapper, 'toDto').mockReturnValue(sampleUserDto);
 
@@ -170,6 +151,7 @@ describe('UsersController', () => {
         email: 'newuser@example.com',
         name: 'New User',
         createdAt: new Date('2024-03-01T00:00:00.000Z'),
+        isSuperAdmin: false,
       };
       usersService.create.mockResolvedValue(createdUser);
       jest.spyOn(UserDtoMapper, 'toDto').mockReturnValue(createdUserDto);
@@ -193,7 +175,7 @@ describe('UsersController', () => {
   describe('update', () => {
     it('should return a UserDto when user is updated successfully', async () => {
       // Arrange
-      const paramsDto: UserByIdDto = { id: 'user-1' };
+      const paramsDto: UserFindByIdDto = { id: 'user-1' };
       const bodyDto: UserUpdateDto = {
         name: 'Updated Name',
       };
@@ -210,6 +192,7 @@ describe('UsersController', () => {
         email: 'user@example.com',
         name: 'Updated Name',
         createdAt: new Date('2024-01-01T00:00:00.000Z'),
+        isSuperAdmin: false,
       };
       usersService.update.mockResolvedValue(updatedUser);
       jest.spyOn(UserDtoMapper, 'toDto').mockReturnValue(updatedUserDto);
@@ -235,7 +218,7 @@ describe('UsersController', () => {
   describe('delete', () => {
     it('should delete user successfully', async () => {
       // Arrange
-      const paramsDto: UserByIdDto = { id: 'user-1' };
+      const paramsDto: UserFindByIdDto = { id: 'user-1' };
       usersService.delete.mockResolvedValue(undefined);
 
       // Act

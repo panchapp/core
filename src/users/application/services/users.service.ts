@@ -1,8 +1,10 @@
 import { CustomException } from '@/common/exceptions/custom.exception';
+import { PaginatedEntity } from '@/users/domain/entities/paginated.entity';
 import { UserEntity } from '@/users/domain/entities/user.entity';
 import { UsersRepository } from '@/users/domain/repositories/users.repository';
 import { USERS_REPOSITORY_TOKEN } from '@/users/domain/tokens/users.tokens';
 import { UserCreationValueObject } from '@/users/domain/value-objects/user-creation.value-object';
+import { UserFindAllValueObject } from '@/users/domain/value-objects/user-find-all.value-object';
 import { UserUpdateValueObject } from '@/users/domain/value-objects/user-update.value-object';
 import { Inject, Injectable } from '@nestjs/common';
 
@@ -13,9 +15,11 @@ export class UsersService {
     private readonly usersRepository: UsersRepository,
   ) {}
 
-  async getAll(): Promise<UserEntity[]> {
+  async getAll(
+    valueObject: UserFindAllValueObject,
+  ): Promise<PaginatedEntity<UserEntity>> {
     try {
-      const foundUsers = await this.usersRepository.findAll();
+      const foundUsers = await this.usersRepository.findAll(valueObject);
       return foundUsers;
     } catch (error) {
       throw CustomException.from(error);
@@ -46,14 +50,14 @@ export class UsersService {
     }
   }
 
-  async create(userValueObject: UserCreationValueObject): Promise<UserEntity> {
+  async create(valueObject: UserCreationValueObject): Promise<UserEntity> {
     try {
-      const createdUser = await this.usersRepository.create(userValueObject);
+      const createdUser = await this.usersRepository.create(valueObject);
       if (!createdUser) {
         throw CustomException.internalServerError(
           'Failed to create user',
           undefined,
-          { email: userValueObject.email },
+          { email: valueObject.email },
         );
       }
       return createdUser;
@@ -64,13 +68,10 @@ export class UsersService {
 
   async update(
     id: string,
-    userValueObject: UserUpdateValueObject,
+    valueObject: UserUpdateValueObject,
   ): Promise<UserEntity> {
     try {
-      const updatedUser = await this.usersRepository.update(
-        id,
-        userValueObject,
-      );
+      const updatedUser = await this.usersRepository.update(id, valueObject);
       if (!updatedUser) {
         throw CustomException.notFound('User not found', undefined, { id });
       }

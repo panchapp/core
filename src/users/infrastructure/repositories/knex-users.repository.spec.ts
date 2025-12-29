@@ -2,6 +2,7 @@ import { handlePgDatabaseError } from '@/common/utils/pg-database-error.util';
 import { UserEntity } from '@/users/domain/entities/user.entity';
 import { USERS_TABLE_TOKEN } from '@/users/domain/tokens/users.tokens';
 import { UserCreationValueObject } from '@/users/domain/value-objects/user-creation.value-object';
+import { UserFindAllValueObject } from '@/users/domain/value-objects/user-find-all.value-object';
 import { UserUpdateValueObject } from '@/users/domain/value-objects/user-update.value-object';
 import { KnexUsersRepository } from '@/users/infrastructure/repositories/knex-users.repository';
 import { UserPersistenceMapper } from '@/users/infrastructure/repositories/mappers/user-persistence.mapper';
@@ -22,12 +23,16 @@ describe('KnexUsersRepository', () => {
   let mockQueryBuilder: {
     select: jest.Mock;
     where: jest.Mock;
+    orWhere: jest.Mock;
     insert: jest.Mock;
     update: jest.Mock;
     delete: jest.Mock;
     returning: jest.Mock;
     first: jest.Mock;
     limit: jest.Mock;
+    offset: jest.Mock;
+    clone: jest.Mock;
+    count: jest.Mock;
   };
   let toEntitySpy: jest.SpyInstance;
   let toDbModelFromCreationValueObjectSpy: jest.SpyInstance;
@@ -56,12 +61,16 @@ describe('KnexUsersRepository', () => {
     mockQueryBuilder = {
       select: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
+      orWhere: jest.fn().mockReturnThis(),
       insert: jest.fn().mockReturnThis(),
       update: jest.fn().mockReturnThis(),
       delete: jest.fn().mockReturnThis(),
       returning: jest.fn().mockReturnThis(),
       first: jest.fn(),
       limit: jest.fn().mockReturnThis(),
+      offset: jest.fn().mockReturnThis(),
+      clone: jest.fn().mockReturnThis(),
+      count: jest.fn().mockReturnThis(),
     };
 
     // Create a mock Knex instance as a function
@@ -81,6 +90,9 @@ describe('KnexUsersRepository', () => {
       'toDbModelFromUpdateValueObject',
     );
 
+    // Setup clone to return a new instance of the query builder
+    mockQueryBuilder.clone.mockReturnValue(mockQueryBuilder);
+
     // Create repository instance
     repository = new KnexUsersRepository(mockKnex as unknown as Knex);
   });
@@ -90,77 +102,145 @@ describe('KnexUsersRepository', () => {
   });
 
   describe('findAll', () => {
-    it('should return all users when database returns users', async () => {
+    const findAllValueObject = UserFindAllValueObject.create({
+      page: 1,
+      limit: 10,
+    });
+
+    it('should return paginated users when database returns users', async () => {
       // Arrange
       const dbUsers = [sampleDbUser];
-      mockQueryBuilder.select.mockResolvedValue(dbUsers);
+      const countResult = { count: '1' };
+      // Setup: clone returns the same builder
+      mockQueryBuilder.clone.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.count.mockReturnThis();
+      // first() resolves for count query
+      mockQueryBuilder.first.mockResolvedValueOnce(countResult);
+      // offset() resolves with dbUsers when called (making query builder thenable)
+      mockQueryBuilder.offset.mockResolvedValueOnce(dbUsers);
       toEntitySpy.mockReturnValue(sampleEntity);
 
       // Act
-      const result = await repository.findAll();
+      const result = await repository.findAll(findAllValueObject);
 
       // Assert
       expect(mockKnex).toHaveBeenCalledWith(USERS_TABLE_TOKEN);
+      expect(mockQueryBuilder.clone).toHaveBeenCalled();
+      expect(mockQueryBuilder.count).toHaveBeenCalledWith('* as count');
       expect(mockQueryBuilder.select).toHaveBeenCalledWith('*');
+      expect(mockQueryBuilder.limit).toHaveBeenCalledWith(10);
+      expect(mockQueryBuilder.offset).toHaveBeenCalledWith(0);
       expect(toEntitySpy).toHaveBeenCalledWith(sampleDbUser);
-      expect(result).toEqual([sampleEntity]);
-      expect(result).toHaveLength(1);
+      expect(result.items).toEqual([sampleEntity]);
+      expect(result.items).toHaveLength(1);
+      expect(result.totalCount).toBe(1);
+      expect(result.currentPage).toBe(1);
+      expect(result.totalPages).toBe(1);
     });
 
-    it('should return empty array when database returns no users', async () => {
+    it('should return empty paginated result when database returns no users', async () => {
       // Arrange
-      mockQueryBuilder.select.mockResolvedValue([]);
+      const countResult = { count: '0' };
+      mockQueryBuilder.clone.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.count.mockReturnThis();
+      mockQueryBuilder.first.mockResolvedValueOnce(countResult);
+      mockQueryBuilder.offset.mockResolvedValueOnce([]);
 
       // Act
-      const result = await repository.findAll();
+      const result = await repository.findAll(findAllValueObject);
 
       // Assert
       expect(mockKnex).toHaveBeenCalledWith(USERS_TABLE_TOKEN);
-      expect(mockQueryBuilder.select).toHaveBeenCalledWith('*');
       expect(toEntitySpy).not.toHaveBeenCalled();
-      expect(result).toEqual([]);
+      expect(result.items).toEqual([]);
+      expect(result.totalCount).toBe(0);
+      expect(result.currentPage).toBe(1);
+      expect(result.totalPages).toBe(0);
     });
 
-    it('should map multiple users correctly', async () => {
+    it('should apply search filter when searchValue is provided', async () => {
       // Arrange
-      const dbUsers = [
-        sampleDbUser,
-        {
-          ...sampleDbUser,
-          id: 'user-2',
-          email: 'user2@example.com',
-        },
-      ];
-      const entity2 = UserEntity.create({
-        ...sampleEntity,
-        id: 'user-2',
-        email: 'user2@example.com',
+      const findAllWithSearch = UserFindAllValueObject.create({
+        page: 1,
+        limit: 10,
+        searchValue: 'john',
       });
-      mockQueryBuilder.select.mockResolvedValue(dbUsers);
-      toEntitySpy
-        .mockReturnValueOnce(sampleEntity)
-        .mockReturnValueOnce(entity2);
+      const dbUsers = [sampleDbUser];
+      const countResult = { count: '1' };
+      mockQueryBuilder.clone.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.count.mockReturnThis();
+      mockQueryBuilder.first.mockResolvedValueOnce(countResult);
+      mockQueryBuilder.offset.mockResolvedValueOnce(dbUsers);
+      toEntitySpy.mockReturnValue(sampleEntity);
 
       // Act
-      const result = await repository.findAll();
+      await repository.findAll(findAllWithSearch);
 
       // Assert
-      expect(result).toHaveLength(2);
-      expect(toEntitySpy).toHaveBeenCalledTimes(2);
-      expect(result[0]).toEqual(sampleEntity);
-      expect(result[1]).toEqual(entity2);
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        'email',
+        'ilike',
+        '%john%',
+      );
+      expect(mockQueryBuilder.orWhere).toHaveBeenCalledWith(
+        'name',
+        'ilike',
+        '%john%',
+      );
+    });
+
+    it('should apply isSuperAdmin filter when provided', async () => {
+      // Arrange
+      const findAllWithFilter = UserFindAllValueObject.create({
+        page: 1,
+        limit: 10,
+        isSuperAdmin: true,
+      });
+      const dbUsers = [sampleDbUser];
+      const countResult = { count: '1' };
+      mockQueryBuilder.clone.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.count.mockReturnThis();
+      mockQueryBuilder.first.mockResolvedValueOnce(countResult);
+      mockQueryBuilder.offset.mockResolvedValueOnce(dbUsers);
+      toEntitySpy.mockReturnValue(sampleEntity);
+
+      // Act
+      await repository.findAll(findAllWithFilter);
+
+      // Assert
+      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
+        'is_super_admin',
+        true,
+      );
+    });
+
+    it('should handle null count result', async () => {
+      // Arrange
+      const dbUsers: UserDbModel[] = [];
+      mockQueryBuilder.clone.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.count.mockReturnThis();
+      mockQueryBuilder.first.mockResolvedValueOnce(null);
+      mockQueryBuilder.offset.mockResolvedValueOnce(dbUsers);
+
+      // Act
+      const result = await repository.findAll(findAllValueObject);
+
+      // Assert
+      expect(result.totalCount).toBe(0);
     });
 
     it('should call handlePgDatabaseError when database error occurs', async () => {
       // Arrange
       const dbError = new Error('Database connection failed');
-      mockQueryBuilder.select.mockRejectedValue(dbError);
+      mockQueryBuilder.clone.mockReturnValue(mockQueryBuilder);
+      mockQueryBuilder.count.mockReturnThis();
+      mockQueryBuilder.first.mockRejectedValue(dbError);
       (handlePgDatabaseError as jest.Mock).mockReturnValue(
         new Error('handled error'),
       );
 
       // Act
-      await repository.findAll().catch(() => undefined);
+      await repository.findAll(findAllValueObject).catch(() => undefined);
 
       // Assert
       expect(handlePgDatabaseError).toHaveBeenCalledWith(
@@ -231,7 +311,7 @@ describe('KnexUsersRepository', () => {
       // Arrange
       mockQueryBuilder.where.mockReturnThis();
       mockQueryBuilder.first.mockResolvedValue(sampleDbUser);
-      toEntitySpy.mockReturnValue(sampleEntity);
+      toEntitySpy.mockReturnValueOnce(sampleEntity);
 
       // Act
       const result = await repository.findByEmail('user@example.com');

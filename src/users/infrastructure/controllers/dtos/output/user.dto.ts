@@ -1,4 +1,4 @@
-import { IsDate, IsEmail, IsString, IsUUID } from 'class-validator';
+import { IsBoolean, IsDate, IsEmail, IsString, IsUUID } from 'class-validator';
 
 export class UserDto {
   @IsUUID()
@@ -12,4 +12,7 @@ export class UserDto {
 
   @IsDate()
   createdAt?: Date;
+
+  @IsBoolean()
+  isSuperAdmin!: boolean;
 }

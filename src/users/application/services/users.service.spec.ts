@@ -1,9 +1,11 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { CustomException } from '@/common/exceptions/custom.exception';
 import { UsersService } from '@/users/application/services/users.service';
+import { PaginatedEntity } from '@/users/domain/entities/paginated.entity';
 import { UserEntity } from '@/users/domain/entities/user.entity';
 import { UsersRepository } from '@/users/domain/repositories/users.repository';
 import { UserCreationValueObject } from '@/users/domain/value-objects/user-creation.value-object';
+import { UserFindAllValueObject } from '@/users/domain/value-objects/user-find-all.value-object';
 import { UserUpdateValueObject } from '@/users/domain/value-objects/user-update.value-object';
 
 describe('UsersService', () => {
@@ -36,29 +38,28 @@ describe('UsersService', () => {
     jest.clearAllMocks();
   });
 
-  describe('getAllUsers', () => {
-    it('should return all users when repository finds users', async () => {
-      // Arrange
-      repository.findAll.mockResolvedValue([sampleUser]);
-
-      // Act
-      const result = await service.getAll();
-
-      // Assert
-      expect(repository.findAll).toHaveBeenCalledTimes(1);
-      expect(result).toEqual([sampleUser]);
+  describe('getAll', () => {
+    const findAllValueObject = UserFindAllValueObject.create({
+      page: 1,
+      limit: 10,
     });
 
-    it('should return an empty array when repository finds no users', async () => {
+    it('should return paginated users when repository finds users', async () => {
       // Arrange
-      repository.findAll.mockResolvedValue([]);
+      const paginatedResult: PaginatedEntity<UserEntity> = {
+        items: [sampleUser],
+        totalCount: 1,
+        currentPage: 1,
+        totalPages: 1,
+      };
+      repository.findAll.mockResolvedValue(paginatedResult);
 
       // Act
-      const result = await service.getAll();
+      const result = await service.getAll(findAllValueObject);
 
       // Assert
-      expect(repository.findAll).toHaveBeenCalledTimes(1);
-      expect(result).toEqual([]);
+      expect(repository.findAll).toHaveBeenCalledWith(findAllValueObject);
+      expect(result).toEqual(paginatedResult);
     });
 
     it('should wrap errors in a CustomException', async () => {
@@ -67,7 +68,7 @@ describe('UsersService', () => {
       repository.findAll.mockRejectedValue(error);
 
       // Act
-      const promise = service.getAll();
+      const promise = service.getAll(findAllValueObject);
 
       // Assert
       await expect(promise).rejects.toThrow(CustomException);
@@ -80,7 +81,7 @@ describe('UsersService', () => {
       repository.findAll.mockRejectedValue(error);
 
       // Act
-      const promise = service.getAll();
+      const promise = service.getAll(findAllValueObject);
 
       // Assert
       await expect(promise).rejects.toThrow(CustomException);
