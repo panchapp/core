@@ -1,3 +1,4 @@
+import { PaginatedEntity } from '@/users/domain/entities/paginated.entity';
 import { UserEntity } from '@/users/domain/entities/user.entity';
 import { UserDto } from '@/users/infrastructure/controllers/dtos/output/user.dto';
 import { UserDtoMapper } from '@/users/infrastructure/controllers/mappers/output/user-dto.mapper';
@@ -46,9 +47,9 @@ describe('UserDtoMapper', () => {
       expect(result.email).toBe(entity.email);
       expect(result.name).toBe(entity.name);
       expect(result.createdAt).toEqual(entity.createdAt);
+      expect(result.isSuperAdmin).toBe(entity.isSuperAdmin);
       // Verify sensitive fields are not in the DTO
       expect('googleId' in result).toBe(false);
-      expect('isSuperAdmin' in result).toBe(false);
     });
   });
 
@@ -94,22 +95,22 @@ describe('UserDtoMapper', () => {
       expect(result[0].id).toBe(entities[0].id);
       expect(result[0].email).toBe(entities[0].email);
       expect(result[0].name).toBe(entities[0].name);
+      expect(result[0].isSuperAdmin).toBe(entities[0].isSuperAdmin);
 
       expect(result[1].id).toBe(entities[1].id);
       expect(result[1].email).toBe(entities[1].email);
       expect(result[1].name).toBe(entities[1].name);
+      expect(result[1].isSuperAdmin).toBe(entities[1].isSuperAdmin);
 
       expect(result[2].id).toBe(entities[2].id);
       expect(result[2].email).toBe(entities[2].email);
       expect(result[2].name).toBe(entities[2].name);
+      expect(result[2].isSuperAdmin).toBe(entities[2].isSuperAdmin);
 
       // Verify sensitive fields are excluded from all DTOs
       expect('googleId' in result[0]).toBe(false);
-      expect('isSuperAdmin' in result[0]).toBe(false);
       expect('googleId' in result[1]).toBe(false);
-      expect('isSuperAdmin' in result[1]).toBe(false);
       expect('googleId' in result[2]).toBe(false);
-      expect('isSuperAdmin' in result[2]).toBe(false);
     });
 
     it('should return an empty array when given an empty array', () => {
@@ -122,6 +123,72 @@ describe('UserDtoMapper', () => {
       // Assert
       expect(result).toHaveLength(0);
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('toPaginatedDto', () => {
+    it('should map PaginatedEntity to PaginatedDto with all fields', () => {
+      // Arrange
+      const entity1 = UserEntity.create({
+        id: 'user-1',
+        email: 'user1@example.com',
+        name: 'User One',
+        googleId: 'google-1',
+        isSuperAdmin: false,
+        createdAt: new Date('2024-01-01T00:00:00.000Z'),
+      });
+      const entity2 = UserEntity.create({
+        id: 'user-2',
+        email: 'user2@example.com',
+        name: 'User Two',
+        googleId: 'google-2',
+        isSuperAdmin: true,
+        createdAt: new Date('2024-02-01T00:00:00.000Z'),
+      });
+
+      const paginatedEntity: PaginatedEntity<UserEntity> = {
+        items: [entity1, entity2],
+        totalCount: 2,
+        currentPage: 1,
+        totalPages: 1,
+      };
+
+      // Act
+      const result = UserDtoMapper.toPaginatedDto(paginatedEntity);
+
+      // Assert
+      expect(result.totalCount).toBe(2);
+      expect(result.currentPage).toBe(1);
+      expect(result.totalPages).toBe(1);
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0]).toBeInstanceOf(UserDto);
+      expect(result.items[1]).toBeInstanceOf(UserDto);
+      expect(result.items[0].id).toBe(entity1.id);
+      expect(result.items[0].email).toBe(entity1.email);
+      expect(result.items[0].name).toBe(entity1.name);
+      expect(result.items[1].id).toBe(entity2.id);
+      expect(result.items[1].email).toBe(entity2.email);
+      expect(result.items[1].name).toBe(entity2.name);
+    });
+
+    it('should map empty PaginatedEntity correctly', () => {
+      // Arrange
+      const paginatedEntity: PaginatedEntity<UserEntity> = {
+        items: [],
+        totalCount: 0,
+        currentPage: 1,
+        totalPages: 0,
+      };
+
+      // Act
+      const result = UserDtoMapper.toPaginatedDto(paginatedEntity);
+
+      // Assert
+      expect(result.totalCount).toBe(0);
+      expect(result.currentPage).toBe(1);
+      expect(result.totalPages).toBe(0);
+      expect(result.items).toHaveLength(0);
+      expect(result.items).toEqual([]);
     });
   });
 });

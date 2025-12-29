@@ -1,6 +1,8 @@
 import { UserCreationValueObject } from '@/users/domain/value-objects/user-creation.value-object';
+import { UserFindAllValueObject } from '@/users/domain/value-objects/user-find-all.value-object';
 import { UserUpdateValueObject } from '@/users/domain/value-objects/user-update.value-object';
 import { UserCreateDto } from '@/users/infrastructure/controllers/dtos/input/user-create.dto';
+import { UserFindAllDto } from '@/users/infrastructure/controllers/dtos/input/user-find-all.dto';
 import { UserUpdateDto } from '@/users/infrastructure/controllers/dtos/input/user-update.dto';
 import { UserValueObjectMapper } from '@/users/infrastructure/controllers/mappers/input/user-value-object.mapper';
 
@@ -148,6 +150,84 @@ describe('UserValueObjectMapper', () => {
       expect(result.name).toBeUndefined();
       expect(result.googleId).toBeUndefined();
       expect(result.isSuperAdmin).toBeUndefined();
+    });
+  });
+
+  describe('toFindAllValueObject', () => {
+    it('should map UserFindAllDto to UserFindAllValueObject with all fields', () => {
+      // Arrange
+      const dto: UserFindAllDto = {
+        page: 1,
+        limit: 10,
+        searchValue: 'john',
+        isSuperAdmin: true,
+      };
+
+      // Act
+      const result = UserValueObjectMapper.toFindAllValueObject(dto);
+
+      // Assert
+      expect(result).toBeInstanceOf(UserFindAllValueObject);
+      expect(result.page).toBe(dto.page);
+      expect(result.limit).toBe(dto.limit);
+      expect(result.searchValue).toBe(dto.searchValue);
+      expect(result.isSuperAdmin).toBe(dto.isSuperAdmin);
+    });
+
+    it('should map UserFindAllDto with only required fields', () => {
+      // Arrange
+      const dto: UserFindAllDto = {
+        page: 2,
+        limit: 20,
+      };
+
+      // Act
+      const result = UserValueObjectMapper.toFindAllValueObject(dto);
+
+      // Assert
+      expect(result).toBeInstanceOf(UserFindAllValueObject);
+      expect(result.page).toBe(dto.page);
+      expect(result.limit).toBe(dto.limit);
+      expect(result.searchValue).toBeUndefined();
+      expect(result.isSuperAdmin).toBeUndefined();
+    });
+
+    it('should map UserFindAllDto with only searchValue', () => {
+      // Arrange
+      const dto: UserFindAllDto = {
+        page: 1,
+        limit: 10,
+        searchValue: 'test@example.com',
+      };
+
+      // Act
+      const result = UserValueObjectMapper.toFindAllValueObject(dto);
+
+      // Assert
+      expect(result).toBeInstanceOf(UserFindAllValueObject);
+      expect(result.page).toBe(dto.page);
+      expect(result.limit).toBe(dto.limit);
+      expect(result.searchValue).toBe(dto.searchValue);
+      expect(result.isSuperAdmin).toBeUndefined();
+    });
+
+    it('should map UserFindAllDto with only isSuperAdmin', () => {
+      // Arrange
+      const dto: UserFindAllDto = {
+        page: 1,
+        limit: 10,
+        isSuperAdmin: false,
+      };
+
+      // Act
+      const result = UserValueObjectMapper.toFindAllValueObject(dto);
+
+      // Assert
+      expect(result).toBeInstanceOf(UserFindAllValueObject);
+      expect(result.page).toBe(dto.page);
+      expect(result.limit).toBe(dto.limit);
+      expect(result.searchValue).toBeUndefined();
+      expect(result.isSuperAdmin).toBe(false);
     });
   });
 });
