@@ -30,7 +30,7 @@ function envConfig() {
     // Auth
     auth: {
       jwtSecret: process.env.JWT_SECRET!,
-      jwtExpirationTime: process.env.JWT_EXPIRATION_TIME!,
+      jwtExpirationTime: Number.parseInt(process.env.JWT_EXPIRATION_TIME!, 10),
       googleClientId: process.env.GOOGLE_CLIENT_ID!,
       googleClientSecret: process.env.GOOGLE_CLIENT_SECRET!,
       googleCallbackUrl: process.env.GOOGLE_CALLBACK_URL!,
